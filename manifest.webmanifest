@@ -1,6 +1,6 @@
 {
-  "name": "ADESG MT",
-  "short_name": "ADESG MT",
+  "name": "ADESG",
+  "short_name": "ADESG",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
