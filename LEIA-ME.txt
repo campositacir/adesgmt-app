@@ -1,0 +1,6 @@
+ADESG-MT - protótipo PWA gratuito
+1. Publique o conteúdo desta pasta em hospedagem estática HTTPS (ex.: GitHub Pages).
+2. Abra a URL publicada no navegador do celular.
+3. No Android, use Instalar aplicativo/Adicionar à tela inicial, quando disponível.
+4. No iPhone, use Compartilhar > Adicionar à Tela de Início.
+ATENÇÃO: Ainda não foi publicado. Os atalhos CEPE, Atividades e Diretoria direcionam à página inicial até conferência das URLs definitivas.
