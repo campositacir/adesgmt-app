@@ -1,7 +1,6 @@
-
 {
-  "name": "ADESGMT | Portal Institucional",
-  "short_name": "ADESG MT",
+  "name": "ADESGMT",
+  "short_name": "ADESGMT",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
