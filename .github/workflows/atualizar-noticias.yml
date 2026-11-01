@@ -1,0 +1,35 @@
+
+name: Atualizar noticias ADESG-MT
+
+on:
+  schedule:
+    - cron: '17 10,16,22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar arquivos do repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Buscar noticias
+        run: python atualizar_noticias.py
+
+      - name: Salvar noticias
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add noticias.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Atualizar noticias automaticamente"
+            git push
+          fi
