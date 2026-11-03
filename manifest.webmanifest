@@ -1,7 +1,6 @@
-
 {
-  "name": "ADESG",
-  "short_name": "ADESG",
+  "name": "AdesgMT",
+  "short_name": "AdesgMT",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
