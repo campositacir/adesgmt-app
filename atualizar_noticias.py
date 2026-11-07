@@ -13,8 +13,10 @@ import xml.etree.ElementTree as ET
 ROOT=pathlib.Path(__file__).resolve().parent
 DEST=ROOT/'noticias.json'
 QUERIES = [
-    '"Associação dos Diplomados da Escola Superior de Guerra" OR site:adesg.org.br OR site:adesgmt.org.br',
+    'site:adesg.org.br',
+    '"ADESG Nacional" OR "Associação dos Diplomados da Escola Superior de Guerra"',
     '"Escola Superior de Guerra" Brasil',
+    '"Escola Superior de Defesa" Brasil',
     'site:gov.br/defesa "Ministério da Defesa"',
     'site:eb.mil.br "Exército Brasileiro"',
     'site:marinha.mil.br "Marinha do Brasil"',
@@ -30,11 +32,11 @@ QUERIES = [
     '"segurança internacional" (Brasil OR "América do Sul" OR "Atlântico Sul")',
     '"vigilância de fronteiras" Brasil OR "segurança marítima" Brasil',
 ]
-OFF_TOPIC = re.compile(r'\bdefesa\W+civil\b|\balerta\s+meteorologico\b')
+OFF_TOPIC = re.compile(r'\bdefesa\W+civil\b|\balertas?\s+meteorologicos?\b|\badesg\W+(?:mt|mato grosso)\b|\bdelegacia(?:\s+regional)?\s+(?:de\s+)?mato grosso\b|adesgmt\.org\.br')
 
 
 def is_relevant(item):
-    text = f"{item['title']} {item['source']}".casefold()
+    text = f"{item['title']} {item['source']} {item.get('source_url', '')}".casefold()
     text = ''.join(char for char in unicodedata.normalize('NFD', text)
                    if not unicodedata.combining(char))
     return not OFF_TOPIC.search(text)
@@ -42,7 +44,7 @@ def is_relevant(item):
 HEADERS={'User-Agent':'Mozilla/5.0 (compatible; ADESGMT-NewsBot/1.0)'}
 
 def fetch(query):
-    url='https://news.google.com/rss/search?'+urllib.parse.urlencode({'q':query,'hl':'pt-BR','gl':'BR','ceid':'BR:pt-419'})
+    url='https://news.google.com/rss/search?'+urllib.parse.urlencode({'q':f'({query}) -"Defesa Civil" -site:adesgmt.org.br','hl':'pt-BR','gl':'BR','ceid':'BR:pt-419'})
     req=urllib.request.Request(url,headers=HEADERS)
     with urllib.request.urlopen(req,timeout=22) as response:
         root=ET.fromstring(response.read())
@@ -52,18 +54,21 @@ def fetch(query):
         if not title or not link.startswith('https://'):continue
         source_el=entry.find('source')
         source=(source_el.text or '').strip() if source_el is not None else 'Notícias'
+        source_url=source_el.get('url', '') if source_el is not None else ''
         date_str=(entry.findtext('pubDate') or '').strip()
         try:
             date=email.utils.parsedate_to_datetime(date_str).date().isoformat()
         except (TypeError,ValueError,IndexError):date=''
-        yield {'title':title,'url':link,'source':source,'date':date}
+        yield {'title':title,'url':link,'source':source,'date':date,'source_url':source_url}
 
 items=[];seen=set();errors=[]
 for query in QUERIES:
     try:
         for item in fetch(query):
+            relevant = is_relevant(item)
+            item.pop('source_url', None)
             key=item['title'].casefold()
-            if key not in seen and is_relevant(item):
+            if key not in seen and relevant:
                 seen.add(key);items.append(item)
     except Exception as exc:errors.append(f'{query}: {exc}')
 items.sort(key=lambda item:item['date'],reverse=True)
