@@ -22,6 +22,13 @@ QUERIES = [
     '"Curso de Estudos de Política e Estratégia" OR "curso de defesa nacional"',
     '"planejamento estratégico" ("Forças Armadas" OR "defesa nacional")',
     '"estratégia nacional de defesa" OR "política nacional de defesa"',
+    'geopolítica (Brasil OR "América do Sul" OR "Atlântico Sul")',
+    '"soberania nacional" (Brasil OR Amazônia OR fronteiras)',
+    '"inteligência artificial" ("defesa nacional" OR "Forças Armadas" OR "tecnologia militar")',
+    '"tecnologia de defesa" OR "base industrial de defesa" OR "indústria de defesa"',
+    '"defesa cibernética" OR "soberania digital" Brasil',
+    '"segurança internacional" (Brasil OR "América do Sul" OR "Atlântico Sul")',
+    '"vigilância de fronteiras" Brasil OR "segurança marítima" Brasil',
 ]
 OFF_TOPIC = re.compile(r'\bdefesa\W+civil\b|\balerta\s+meteorologico\b')
 
