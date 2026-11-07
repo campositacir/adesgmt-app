@@ -4,19 +4,34 @@ import datetime as dt
 import email.utils
 import json
 import pathlib
+import re
+import unicodedata
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
 ROOT=pathlib.Path(__file__).resolve().parent
 DEST=ROOT/'noticias.json'
-QUERIES=[
-    'site:gov.br/defesa defesa nacional',
-    'site:eb.mil.br Exército Brasileiro',
-    'site:marinha.mil.br Marinha do Brasil',
-    'site:fab.mil.br Força Aérea Brasileira',
-    'Escola Superior de Guerra defesa estratégia Brasil',
+QUERIES = [
+    '"Associação dos Diplomados da Escola Superior de Guerra" OR site:adesg.org.br OR site:adesgmt.org.br',
+    '"Escola Superior de Guerra" Brasil',
+    'site:gov.br/defesa "Ministério da Defesa"',
+    'site:eb.mil.br "Exército Brasileiro"',
+    'site:marinha.mil.br "Marinha do Brasil"',
+    'site:fab.mil.br "Força Aérea Brasileira"',
+    '"Curso de Estudos de Política e Estratégia" OR "curso de defesa nacional"',
+    '"planejamento estratégico" ("Forças Armadas" OR "defesa nacional")',
+    '"estratégia nacional de defesa" OR "política nacional de defesa"',
 ]
+OFF_TOPIC = re.compile(r'\bdefesa\W+civil\b|\balerta\s+meteorologico\b')
+
+
+def is_relevant(item):
+    text = f"{item['title']} {item['source']}".casefold()
+    text = ''.join(char for char in unicodedata.normalize('NFD', text)
+                   if not unicodedata.combining(char))
+    return not OFF_TOPIC.search(text)
+
 HEADERS={'User-Agent':'Mozilla/5.0 (compatible; ADESGMT-NewsBot/1.0)'}
 
 def fetch(query):
@@ -41,7 +56,7 @@ for query in QUERIES:
     try:
         for item in fetch(query):
             key=item['title'].casefold()
-            if key not in seen:
+            if key not in seen and is_relevant(item):
                 seen.add(key);items.append(item)
     except Exception as exc:errors.append(f'{query}: {exc}')
 items.sort(key=lambda item:item['date'],reverse=True)
