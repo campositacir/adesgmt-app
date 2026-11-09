@@ -35,11 +35,69 @@ QUERIES = [
 OFF_TOPIC = re.compile(r'\bdefesa\W+civil\b|\balertas?\s+meteorologicos?\b|\badesg\W+(?:mt|mato grosso)\b|\bdelegacia(?:\s+regional)?\s+(?:de\s+)?mato grosso\b|adesgmt\.org\.br')
 
 
-def is_relevant(item):
-    text = f"{item['title']} {item['source']} {item.get('source_url', '')}".casefold()
-    text = ''.join(char for char in unicodedata.normalize('NFD', text)
+TOPICS = re.compile(
+    r'\b(?:adesg|esg|escola superior de (?:guerra|defesa)|'
+    r'associacao dos diplomados da escola superior de guerra|'
+    r'curso de estudos de politica e estrategia|ministerio da defesa|'
+    r'forcas? armadas?|exercito|marinha|aeronautica|forca aerea|'
+    r'geopolitic[ao]s?|defesa nacional|(?:estrategia|politica) nacional de defesa|estrategia militar|'
+    r'planejamento estrategico|tecnologias? de defesa|tecnologia militar|'
+    r'industria de defesa|base industrial de defesa|defesa cibernetica|'
+    r'soberania digital|seguranca internacional|seguranca maritima|'
+    r'vigilancia de fronteiras|exercicio militar|treinamento de guerra|'
+    r'robos terrestres|operacao militar)\b'
+)
+SOVEREIGNTY = re.compile(r'\bsoberania\b')
+STRATEGIC_CONTEXT = re.compile(r'\b(?:defesa|fronteiras?|amazonia|atlantico sul|territorial|militar)\b')
+SOCIAL_SOURCES = {'instagram', 'facebook', 'tiktok', 'x', 'twitter', 'threads', 'youtube'}
+OFFICIAL_DOMAINS = {'adesg.org.br', 'eb.mil.br', 'marinha.mil.br', 'fab.mil.br'}
+STOP_WORDS = {'para', 'sobre', 'entre', 'apos', 'como', 'mais', 'pelo', 'pela', 'pelos', 'pelas', 'este', 'esta'}
+
+
+def normalize(text):
+    return ''.join(char for char in unicodedata.normalize('NFD', text.casefold())
                    if not unicodedata.combining(char))
-    return not OFF_TOPIC.search(text)
+
+
+def headline(item):
+    suffix = ' - ' + item['source']
+    title = item['title']
+    return normalize(title.removesuffix(suffix))
+
+
+def is_relevant(item):
+    title = headline(item)
+    source = normalize(item['source'])
+    source_url = urllib.parse.urlsplit(item.get('source_url', ''))
+    host = source_url.hostname or ''
+    if OFF_TOPIC.search(f"{title} {source} {host}") or source in SOCIAL_SOURCES:
+        return False
+    if re.search(r'\b(?:enem|gabarito)\b', title):
+        return False
+    official = any(host == domain or host.endswith('.' + domain) for domain in OFFICIAL_DOMAINS)
+    official_defense = host in {'gov.br', 'www.gov.br'} and source_url.path.startswith('/defesa')
+    sovereignty = SOVEREIGNTY.search(title) and STRATEGIC_CONTEXT.search(title)
+    return bool(official or official_defense or TOPICS.search(title) or sovereignty)
+
+
+def select_news(items, limit=24):
+    selected = []
+    seen = []
+    for item in sorted(items, key=lambda item: item['date'], reverse=True):
+        if not is_relevant(item):
+            continue
+        title = headline(item)
+        words = set(re.findall(r'\b\w{4,}\b', title)) - STOP_WORDS
+        if any(title == previous or
+               (len(words & previous_words) >= 4 and
+                len(words & previous_words) / len(words | previous_words) >= 0.65)
+               for previous, previous_words in seen):
+            continue
+        seen.append((title, words))
+        selected.append({key: value for key, value in item.items() if key != 'source_url'})
+        if len(selected) == limit:
+            break
+    return selected
 
 HEADERS={'User-Agent':'Mozilla/5.0 (compatible; ADESGMT-NewsBot/1.0)'}
 
@@ -61,20 +119,22 @@ def fetch(query):
         except (TypeError,ValueError,IndexError):date=''
         yield {'title':title,'url':link,'source':source,'date':date,'source_url':source_url}
 
-items=[];seen=set();errors=[]
-for query in QUERIES:
-    try:
-        for item in fetch(query):
-            relevant = is_relevant(item)
-            item.pop('source_url', None)
-            key=item['title'].casefold()
-            if key not in seen and relevant:
-                seen.add(key);items.append(item)
-    except Exception as exc:errors.append(f'{query}: {exc}')
-items.sort(key=lambda item:item['date'],reverse=True)
-if not items:
-    print('Nenhuma notícia recebida; preservando o arquivo anterior. Erros:',errors)
-    raise SystemExit(1)
-payload={'updated':dt.datetime.now(dt.timezone.utc).isoformat(),'items':items[:24]}
-DEST.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-print(f'{len(payload["items"])} notícias salvas. Fontes indisponíveis: {len(errors)}')
+def main():
+    candidates = []
+    errors = []
+    for query in QUERIES:
+        try:
+            candidates.extend(fetch(query))
+        except (OSError, ET.ParseError) as exc:
+            errors.append(f'{query}: {exc}')
+    items = select_news(candidates)
+    if not items:
+        print('Nenhuma notícia relevante recebida; preservando o arquivo anterior. Erros:', errors)
+        raise SystemExit(1)
+    payload = {'updated': dt.datetime.now(dt.timezone.utc).isoformat(), 'items': items}
+    DEST.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    print(f'{len(items)} notícias salvas. Buscas indisponíveis: {len(errors)}')
+
+
+if __name__ == '__main__':
+    main()
